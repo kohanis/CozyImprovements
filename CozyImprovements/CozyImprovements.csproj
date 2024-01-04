@@ -1,59 +1,58 @@
 <Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>netstandard2.1</TargetFramework>
+        <RootNamespace>SpyciBot.LC.CozyImprovements</RootNamespace>
+        <AssemblyName>com.spycibot.cozyimprovements</AssemblyName>
+        <Product>Cozy Improvements</Product>
+        <Description>
+            Enhance the experience inside the ship to create a more immersive, cozy, and accessible environment.
+        </Description>
+        <Version>1.2.0</Version>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <LangVersion>latest</LangVersion>
+        <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
+        <RestoreAdditionalProjectSources>
+            https://api.nuget.org/v3/index.json;
+            https://nuget.bepinex.dev/v3/index.json;
+            https://nuget.samboy.dev/v3/index.json;
+        </RestoreAdditionalProjectSources>
+    </PropertyGroup>
 
-  <PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
-	<RootNamespace>SpyciBot.LC.CozyImprovements</RootNamespace>
-	<AssemblyName>com.spycibot.cozyimprovements</AssemblyName>
-	<Product>Cozy Improvements</Product>
-    <Description>
-		Enhance the experience inside the ship to create a more immersive, cozy, and accessible environment.
-	</Description>
-    <Version>1.2.0</Version>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <LangVersion>latest</LangVersion>
-	<ProduceReferenceAssembly>False</ProduceReferenceAssembly>
-	<RestoreAdditionalProjectSources>
-		https://api.nuget.org/v3/index.json;
-		https://nuget.bepinex.dev/v3/index.json;
-		https://nuget.samboy.dev/v3/index.json;
-	</RestoreAdditionalProjectSources>
-  </PropertyGroup>
-	
-	<!-- prevent referenced assemblies from being copied to the output folder -->
-  <Target Name="ClearReferenceCopyLocalPaths" AfterTargets="ResolveAssemblyReferences">
+    <!-- prevent referenced assemblies from being copied to the output folder -->
+    <Target Name="ClearReferenceCopyLocalPaths" AfterTargets="ResolveAssemblyReferences">
+        <ItemGroup>
+            <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)"/>
+        </ItemGroup>
+    </Target>
+
     <ItemGroup>
-      <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)" />
+        <PackageReference Include="BepInEx.Analyzers" Version="1.*" PrivateAssets="all"/>
+        <PackageReference Include="BepInEx.Core" Version="5.*"/>
+        <PackageReference Include="BepInEx.PluginInfoProps" Version="1.*"/>
+        <PackageReference Include="UnityEngine.Modules" Version="2022.3.9" IncludeAssets="compile"/>
+        <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.*" PrivateAssets="all"/>
     </ItemGroup>
-  </Target>
-	
-  <ItemGroup>
-    <PackageReference Include="BepInEx.Analyzers" Version="1.*" PrivateAssets="all" />
-    <PackageReference Include="BepInEx.Core" Version="5.*" />
-    <PackageReference Include="BepInEx.PluginInfoProps" Version="1.*" />
-    <PackageReference Include="UnityEngine.Modules" Version="2022.3.9" IncludeAssets="compile" />
-    <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.*" PrivateAssets="all"/>
-  </ItemGroup>
-  
-  <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
-  </ItemGroup>
-	
-  <ItemGroup Condition="$(CI) != 'true'">
-    <Reference Include="Assembly-CSharp">
-      <HintPath>$(LETHAL_COMPANY_DIR)\Lethal Company_Data\Managed\Assembly-CSharp.dll</HintPath>
-      <Publicize>true</Publicize>
-    </Reference>
-    <Reference Include="Unity.Netcode.Runtime">
-      <HintPath>$(LETHAL_COMPANY_DIR)\Lethal Company_Data\Managed\Unity.Netcode.Runtime.dll</HintPath>
-    </Reference>
-	  <Reference Include="UnityEngine">
-		  <HintPath>$(LETHAL_COMPANY_DIR)\Lethal Company_Data\Managed\UnityEngine.dll</HintPath>
-	  </Reference>
-	  <Reference Include="Unity.TextMeshPro">
-		  <HintPath>$(LETHAL_COMPANY_DIR)\Lethal Company_Data\Managed\Unity.TextMeshPro.dll</HintPath>
-	  </Reference>
-	  <Reference Include="UnityEngine.UI">
-		  <HintPath>$(LETHAL_COMPANY_DIR)\Lethal Company_Data\Managed\UnityEngine.UI.dll</HintPath>
-	  </Reference>
-  </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
+        <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="$(CI) != 'true'">
+        <Reference Include="Assembly-CSharp">
+            <HintPath>$(LETHAL_COMPANY_DIR)\Lethal Company_Data\Managed\Assembly-CSharp.dll</HintPath>
+            <Publicize>true</Publicize>
+        </Reference>
+        <Reference Include="Unity.Netcode.Runtime">
+            <HintPath>$(LETHAL_COMPANY_DIR)\Lethal Company_Data\Managed\Unity.Netcode.Runtime.dll</HintPath>
+        </Reference>
+        <Reference Include="UnityEngine">
+            <HintPath>$(LETHAL_COMPANY_DIR)\Lethal Company_Data\Managed\UnityEngine.dll</HintPath>
+        </Reference>
+        <Reference Include="Unity.TextMeshPro">
+            <HintPath>$(LETHAL_COMPANY_DIR)\Lethal Company_Data\Managed\Unity.TextMeshPro.dll</HintPath>
+        </Reference>
+        <Reference Include="UnityEngine.UI">
+            <HintPath>$(LETHAL_COMPANY_DIR)\Lethal Company_Data\Managed\UnityEngine.UI.dll</HintPath>
+        </Reference>
+    </ItemGroup>
 </Project>
