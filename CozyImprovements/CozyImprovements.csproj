@@ -34,25 +34,18 @@
     </ItemGroup>
 
     <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
-        <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all"/>
+        <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all"/>
     </ItemGroup>
 
     <ItemGroup Condition="$(CI) != 'true'">
         <Reference Include="Assembly-CSharp">
             <HintPath>$(LETHAL_COMPANY_DIR)\Lethal Company_Data\Managed\Assembly-CSharp.dll</HintPath>
+            <Private>false</Private>
             <Publicize>true</Publicize>
         </Reference>
         <Reference Include="Unity.Netcode.Runtime">
             <HintPath>$(LETHAL_COMPANY_DIR)\Lethal Company_Data\Managed\Unity.Netcode.Runtime.dll</HintPath>
-        </Reference>
-        <Reference Include="UnityEngine">
-            <HintPath>$(LETHAL_COMPANY_DIR)\Lethal Company_Data\Managed\UnityEngine.dll</HintPath>
-        </Reference>
-        <Reference Include="Unity.TextMeshPro">
-            <HintPath>$(LETHAL_COMPANY_DIR)\Lethal Company_Data\Managed\Unity.TextMeshPro.dll</HintPath>
-        </Reference>
-        <Reference Include="UnityEngine.UI">
-            <HintPath>$(LETHAL_COMPANY_DIR)\Lethal Company_Data\Managed\UnityEngine.UI.dll</HintPath>
+            <Private>false</Private>
         </Reference>
     </ItemGroup>
 </Project>

@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using UnityEngine;
 
 namespace SpyciBot.LC.CozyImprovements.Improvements;
@@ -6,8 +6,6 @@ namespace SpyciBot.LC.CozyImprovements.Improvements;
 [HarmonyPatch]
 public static class Accessibility
 {
-    private static HangarShipDoor hangarShipDoor;
-
     // 
     // Launch Lever Fixes
     // - Make hitbox of launch lever huge so it's easy to pull
@@ -17,17 +15,18 @@ public static class Accessibility
     private static void Postfix_StartMatchLever_Start(StartMatchLever __instance)
     {
         // Don't bother if the config option is disabled
-        if (!CozyImprovements.CozyConfig.configEasyLaunchLever.Value)
+        if (!Configs.EasyLaunchLever.Value)
             return;
 
+        var levelTransform = __instance.transform;
+
         // Make the lever wide and flat, making it easy to press anywhere on the main section of the desk
-        __instance.transform.localScale = new Vector3(1.139f, 0.339f, 1.539f);
-        __instance.transform.localPosition = new Vector3(8.7938f, 1.479f, -7.0767f);
+        levelTransform.localScale = new Vector3(1.139f, 0.339f, 1.539f);
+        levelTransform.localPosition = new Vector3(8.7938f, 1.479f, -7.0767f);
 
         // reset the playerPos so the lever pull animation is normal
-        __instance.transform.GetChild(0).position = new Vector3(8.8353f, 0.2931f, -14.5767f);
+        levelTransform.Find("playerPos").position = new Vector3(8.8353f, 0.2931f, -14.5767f);
     }
-
 
     // 
     // Hangar Door Button Panel Fixes
@@ -38,122 +37,104 @@ public static class Accessibility
     private static void Postfix_HangarShipDoor_Start(HangarShipDoor __instance)
     {
         // Don't bother if the config option is disabled
-        if (!CozyImprovements.CozyConfig.configBigDoorButtons.Value)
+        if (!Configs.BigDoorButtons.Value)
             return;
 
-        hangarShipDoor = __instance;
-        var buttonPanel = __instance.hydraulicsDisplay.transform.parent.gameObject;
+        var buttonPanel = __instance.hydraulicsDisplay.transform.parent;
 
         // Make the whole panel bigger and centered on the 2 beams
-        buttonPanel.transform.localScale = new Vector3(-2f, -2f, -2f);
-        buttonPanel.transform.localPosition = new Vector3(-5.2085f, 1.8882f, -8.823f);
+        buttonPanel.localScale = new Vector3(-2f, -2f, -2f);
+        buttonPanel.localPosition = new Vector3(-5.2085f, 1.8882f, -8.823f);
 
         // Adjust the size of the Start Button collider to match the Stop button
-        var startButton = buttonPanel.transform.Find("StartButton").gameObject;
-        var stopButton = buttonPanel.transform.Find("StopButton").gameObject;
+        var startButton = buttonPanel.Find("StartButton");
+        var stopButton = buttonPanel.Find("StopButton");
 
-        stopButton.transform.localScale = new Vector3(-1.1986f, -0.1986f, -1.1986f);
-        startButton.transform.localScale = stopButton.transform.localScale;
-
-        startButton.transform.GetChild(0).localPosition = stopButton.transform.GetChild(0).localPosition;
-        startButton.transform.GetChild(0).localScale = stopButton.transform.GetChild(0).localScale;
-
-
-        // Fix Emissives of buttons
-        var startButtonMats = startButton.GetComponent<MeshRenderer>().materials;
-        for (var i = 0; i < startButtonMats.Length; i++)
-        {
-            if (startButtonMats[i].name == "GreenButton (Instance)")
-            {
-                startButtonMats[i].SetColor("_EmissiveColor", new Color32(39, 51, 39, 255));
-            }
-
-            if (startButtonMats[i].name == "ButtonWhite (Instance)")
-            {
-                startButtonMats[i].SetColor("_EmissiveColor", new Color32(179, 179, 179, 255));
-            }
-        }
-
-        startButton.GetComponent<MeshRenderer>().materials = startButtonMats;
-
-        var stopButtonMats = stopButton.GetComponent<MeshRenderer>().materials;
-        for (var i = 0; i < stopButtonMats.Length; i++)
-        {
-            if (stopButtonMats[i].name == "RedButton (Instance)")
-            {
-                stopButtonMats[i].SetColor("_EmissiveColor", new Color32(64, 24, 24, 255));
-            }
-
-            if (stopButtonMats[i].name == "ButtonWhite (Instance)")
-            {
-                stopButtonMats[i].SetColor("_EmissiveColor", new Color32(179, 179, 179, 255));
-            }
-        }
-
-        stopButton.GetComponent<MeshRenderer>().materials = stopButtonMats;
-
+        var newLocalScale = new Vector3(-1.1986f, -0.1986f, -1.1986f);
+        stopButton.localScale = newLocalScale;
+        startButton.localScale = newLocalScale;
 
         // Make Buttons Interact Area Bigger
 
-        var startButtonInteract = buttonPanel.transform.Find("StartButton").GetChild(0);
-        var stopButtonInteract = buttonPanel.transform.Find("StopButton").GetChild(0);
-
-
-        //StartButtonInteract.GetComponent<MeshRenderer>().enabled = true;
-        startButtonInteract.GetComponent<MeshRenderer>().material.color = new Color32(39, 255, 39, 255);
-
-        //StopButtonInteract.GetComponent<MeshRenderer>().enabled = true;
-        stopButtonInteract.GetComponent<MeshRenderer>().material.color = new Color32(255, 24, 24, 255);
-
+        var startButtonInteract = startButton.GetChild(0);
+        var stopButtonInteract = stopButton.GetChild(0);
 
         var pressablePosition = new Vector3(-3.7205f, 2.0504f, -16.3018f);
         var pressableScale = new Vector3(0.7393f, 0.4526f, 0.6202f);
-        var notPressableScale = new Vector3(0.003493f, 0.000526f, 0.002202f);
 
+        startButtonInteract.GetComponent<MeshRenderer>().material.color = new Color32(39, 255, 39, 255);
         startButtonInteract.position = pressablePosition;
         startButtonInteract.localScale = pressableScale;
+
+        stopButtonInteract.GetComponent<MeshRenderer>().material.color = new Color32(255, 24, 24, 255);
         stopButtonInteract.position = pressablePosition;
-        stopButtonInteract.localScale = notPressableScale;
+        stopButtonInteract.localScale = pressableScale;
+
+        stopButtonInteract.GetComponent<BoxCollider>().enabled = false;
+
+        // Fix Emissives of buttons
+
+        var startButtonMaterials = startButton.GetComponent<MeshRenderer>().materials;
+        foreach (var material in startButtonMaterials)
+        {
+            switch (material.name)
+            {
+                case "GreenButton (Instance)":
+                    material.SetColor(ShaderIDs.EmissiveColor.Value, new Color32(39, 51, 39, 255));
+                    break;
+                case "ButtonWhite (Instance)":
+                    material.SetColor(ShaderIDs.EmissiveColor.Value, new Color32(179, 179, 179, 255));
+                    break;
+            }
+        }
+
+        startButton.GetComponent<MeshRenderer>().materials = startButtonMaterials;
+
+        var stopButtonMaterials = stopButton.GetComponent<MeshRenderer>().materials;
+        foreach (var material in stopButtonMaterials)
+        {
+            switch (material.name)
+            {
+                case "RedButton (Instance)":
+                    material.SetColor(ShaderIDs.EmissiveColor.Value, new Color32(64, 24, 24, 255));
+                    break;
+                case "ButtonWhite (Instance)":
+                    material.SetColor(ShaderIDs.EmissiveColor.Value, new Color32(179, 179, 179, 255));
+                    break;
+            }
+        }
+
+        stopButton.GetComponent<MeshRenderer>().materials = stopButtonMaterials;
     }
 
     //
     // Hangar Door Button Panel Fixes
     // - Toggle which button is usable depending on if the door is open or not
     //
-    [HarmonyPatch(typeof(StartOfRound), "SetShipDoorsClosed")]
+    [HarmonyPatch(typeof(HangarShipDoor), "SetDoorClosed")]
     [HarmonyPostfix]
-    private static void Postfix_StartOfRound_SetShipDoorsClosed(StartOfRound __instance, bool closed)
+    private static void Postfix_HangarShipDoor_SetDoorClosed(HangarShipDoor __instance) =>
+        OnDoorStateChanged(__instance, true);
+
+    //
+    // Hangar Door Button Panel Fixes
+    // - Toggle which button is usable depending on if the door is open or not
+    //
+    [HarmonyPatch(typeof(HangarShipDoor), "SetDoorOpen")]
+    [HarmonyPostfix]
+    private static void Postfix_HangarShipDoor_SetDoorOpen(HangarShipDoor __instance) =>
+        OnDoorStateChanged(__instance, false);
+
+    private static void OnDoorStateChanged(HangarShipDoor door, bool closed)
     {
         // Don't bother if the config option is disabled
-        if (!CozyImprovements.CozyConfig.configBigDoorButtons.Value)
+        if (!Configs.BigDoorButtons.Value)
             return;
 
-        var buttonPanel = hangarShipDoor.hydraulicsDisplay.transform.parent.gameObject;
-        var startButtonInteract = buttonPanel.transform.Find("StartButton").GetChild(0);
-        var stopButtonInteract = buttonPanel.transform.Find("StopButton").GetChild(0);
+        var buttonPanel = door.hydraulicsDisplay.transform.parent;
 
-        var pressableScale = new Vector3(0.7393f, 0.4526f, 0.6202f);
-        var notPressableScale = new Vector3(0.003493f, 0.000526f, 0.002202f);
-
-        startButtonInteract.localScale = pressableScale;
-        stopButtonInteract.localScale = pressableScale;
-
-        if (closed)
-        {
-            //StartButtonInteract.GetComponent<MeshRenderer>().enabled = true;
-            startButtonInteract.localScale = pressableScale;
-
-            //StopButtonInteract.GetComponent<MeshRenderer>().enabled = false;
-            stopButtonInteract.localScale = notPressableScale;
-        }
-        else
-        {
-            //StopButtonInteract.GetComponent<MeshRenderer>().enabled = true;
-            stopButtonInteract.localScale = pressableScale;
-
-            //StartButtonInteract.GetComponent<MeshRenderer>().enabled = false;
-            startButtonInteract.localScale = notPressableScale;
-        }
+        buttonPanel.Find("StartButton").GetChild(0).GetComponent<BoxCollider>().enabled = closed;
+        buttonPanel.Find("StopButton").GetChild(0).GetComponent<BoxCollider>().enabled = !closed;
     }
 
     //
@@ -165,10 +146,11 @@ public static class Accessibility
     private static void Postfix_ShipTeleporter_Awake(ShipTeleporter __instance)
     {
         // Don't bother if the config option is disabled
-        if (!CozyImprovements.CozyConfig.configBigTeleporterButtons.Value)
+        if (!Configs.BigTeleporterButtons.Value)
             return;
-        var teleporterButton = __instance.buttonTrigger.gameObject.transform.parent.gameObject;
-        teleporterButton.transform.localScale = (Vector3.one * 3f);
+
+        var teleporterButton = __instance.buttonTrigger.transform.parent;
+        teleporterButton.localScale = Vector3.one * 3f;
     }
 
     //
@@ -178,14 +160,13 @@ public static class Accessibility
     public static void AdjustMonitorButtons(GameObject buttonCube)
     {
         // Don't bother if the config option is disabled
-        if (!CozyImprovements.CozyConfig.configBigMonitorButtons.Value)
+        if (!Configs.BigMonitorButtons.Value)
             return;
-        var button = buttonCube.transform.parent.gameObject;
-        button.transform.localScale = new Vector3(1.852f, 1.8475f, 1.852f);
 
-        if (button.name == "CameraMonitorSwitchButton")
-        {
-            button.transform.localPosition = new Vector3(-0.28f, -1.807f, -0.29f);
-        }
+        var button = buttonCube.transform.parent;
+        button.localScale = new Vector3(1.852f, 1.8475f, 1.852f);
+
+        if (button.gameObject.name == "CameraMonitorSwitchButton")
+            button.localPosition = new Vector3(-0.28f, -1.807f, -0.29f);
     }
 }

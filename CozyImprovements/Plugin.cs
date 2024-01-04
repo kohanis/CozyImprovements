@@ -1,13 +1,11 @@
-using System.Collections.Generic;
 using System.Reflection;
-using System.Security.Permissions;
+using System.Runtime.CompilerServices;
+using System.Text;
 using BepInEx;
+using BepInEx.Logging;
 using HarmonyLib;
 using SpyciBot.LC.CozyImprovements.Improvements;
-using Unity.Netcode;
 using UnityEngine;
-
-[assembly: SecurityPermission(SecurityAction.RequestMinimum, SkipVerification = true)]
 
 namespace SpyciBot.LC.CozyImprovements;
 
@@ -15,15 +13,13 @@ namespace SpyciBot.LC.CozyImprovements;
 [HarmonyPatch]
 public class CozyImprovements : BaseUnityPlugin
 {
-    private static GameObject closetGameObject;
-    private static Terminal termInst;
-
-    public static Config CozyConfig { get; private set; }
+    internal static ManualLogSource Log;
 
     private void Awake()
     {
         // Plugin startup logic
-        CozyConfig = new(Config);
+        Log = Logger;
+        Configs.Init(Config);
         Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly());
         Logger.LogInfo(
             $"Plugin {PluginInfo.PLUGIN_NAME} - {PluginInfo.PLUGIN_GUID} - {PluginInfo.PLUGIN_VERSION} is loaded!");
@@ -33,13 +29,29 @@ public class CozyImprovements : BaseUnityPlugin
     // 
     // Terminal Fixes
     //
+    
+    [HarmonyPatch(typeof(Terminal), "Start")]
+    [HarmonyPostfix]
+    private static void Postfix_Terminal_Start(Terminal __instance)
+    {
+        if (Configs.TerminalMonitorAlwaysOn.Value)
+        {
+            //  Make terminal display the Store list on startup
+            __instance.LoadNewNode(__instance.terminalNodes.specialNodes[1]);
+        }
+
+        if (Configs.TerminalGlow.Value)
+        {
+            // Force terminal light to always be turned on/visible
+            __instance.terminalLight.enabled = true;
+        }
+    }
 
     [HarmonyPatch(typeof(Terminal), "waitUntilFrameEndToSetActive")]
     [HarmonyPrefix]
-    private static void Prefix_Terminal_WaitUntilFrameEndToSetActive(Terminal __instance, ref bool active)
+    private static void Prefix_Terminal_WaitUntilFrameEndToSetActive(ref bool active)
     {
-        termInst = __instance;
-        if (CozyConfig.configTerminalMonitorAlwaysOn.Value)
+        if (Configs.TerminalMonitorAlwaysOn.Value)
         {
             // Force terminal canvas to always be turned on/visible
             active = true;
@@ -48,12 +60,12 @@ public class CozyImprovements : BaseUnityPlugin
 
     [HarmonyPatch(typeof(Terminal), "SetTerminalInUseClientRpc")]
     [HarmonyPostfix]
-    private static void Postfix_Terminal_SetTerminalInUseClientRpc(Terminal __instance, bool inUse)
+    private static void Postfix_Terminal_SetTerminalInUseClientRpc(Terminal __instance)
     {
-        if (CozyConfig.configTerminalGlow.Value)
+        if (Configs.TerminalGlow.Value)
         {
             // Force terminal light to always be turned on/visible
-            termInst.terminalLight.enabled = true;
+            __instance.terminalLight.enabled = true;
         }
     }
 
@@ -62,22 +74,10 @@ public class CozyImprovements : BaseUnityPlugin
     // Run on Client and Host
     //
 
-    [HarmonyPatch(typeof(StartOfRound), "OnPlayerConnectedClientRpc")]
+    [HarmonyPatch(typeof(StartOfRound), "Start")]
     [HarmonyPostfix]
-    private static void Postfix_StartOfRound_OnPlayerConnectedClientRpc(StartOfRound __instance, ulong clientId, int connectedPlayers, ulong[] connectedPlayerIdsOrdered, int assignedPlayerObjectId, int serverMoneyAmount, int levelID, int profitQuota, int timeUntilDeadline, int quotaFulfilled, int randomSeed)
+    private static void Postfix_StartOfRound_Start()
     {
-        // This will trigger on every client every time a client joins, so only do stuff if it's the joining client
-        if (clientId == NetworkManager.Singleton.LocalClientId)
-        {
-            DoAllTheThings();
-        }
-    }
-
-    [HarmonyPatch(typeof(StartOfRound), "LoadUnlockables")]
-    [HarmonyPostfix]
-    private static void Postfix_StartOfRound_LoadUnlockables()
-    {
-        // This will only trigger on the host
         DoAllTheThings();
     }
 
@@ -95,41 +95,29 @@ public class CozyImprovements : BaseUnityPlugin
     private static void ManageInteractables()
     {
         // PlayerControllerB localPlayerController = GameNetworkManager.Instance.localPlayerController;
-        var array = GameObject.FindGameObjectsWithTag("InteractTrigger");
-        for (var i = 0; i < array.Length; i++)
+        var interactTriggers = GameObject.FindGameObjectsWithTag("InteractTrigger");
+        foreach (var trigger in interactTriggers)
         {
-            //Debug.Log($"{i} -- {array[i].name}");
-            if (array[i].name == "LightSwitch")
+            switch (trigger.name)
             {
-                if (CozyConfig.configLightSwitchGlow.Value)
+                //Log.LogInfo($" -- {trigger.name}");
+                case "LightSwitch" when Configs.LightSwitchGlow.Value:
                 {
                     // Make the light switch panel glow green and make the switch glow red
-                    MakeEmissive(array[i], new Color32(182, 240, 150, 102));
-                    MakeEmissive(array[i].transform.GetChild(0).gameObject, new Color32(241, 80, 80, 10), 0.15f);
+                    MakeEmissive(trigger, new Color32(182, 240, 150, 102));
+                    MakeEmissive(
+                        trigger.transform.Find("Switch").gameObject,
+                        new Color32(241, 80, 80, 10),
+                        0.15f
+                    );
+
+                    break;
                 }
-            }
-
-            if (array[i].name == "TerminalScript")
-            {
-                if (CozyConfig.configTerminalMonitorAlwaysOn.Value)
+                case "Trigger" when Configs.ChargeStationGlow.Value:
                 {
-                    //  Make terminal display the Store list on startup
-                    termInst.LoadNewNode(termInst.terminalNodes.specialNodes[1]);
-                }
-
-                if (CozyConfig.configTerminalGlow.Value)
-                {
-                    // Force terminal light to always be turned on/visible
-                    termInst.terminalLight.enabled = true;
-                }
-            }
-
-            if (array[i].name == "Trigger")
-            {
-                if (CozyConfig.configChargeStationGlow.Value)
-                {
-                    var chargeStation = array[i].transform.parent.parent.gameObject;
-
+                    if (trigger.transform.parent is not { parent: { name: "ChargeStation" } chargeStation })
+                        break;
+                    
                     // Add a yellow glow to the ChargeStation
                     var lightObject = new GameObject("ChargeStationLight");
                     var lightComponent = lightObject.AddComponent<Light>();
@@ -144,13 +132,17 @@ public class CozyImprovements : BaseUnityPlugin
                     lightObject.transform.localPosition = new Vector3(0.5f, 0.0f, 0.0f);
                     //lightObject.transform.rotation = Quaternion.Euler(0, 180, 0);
                     lightObject.transform.SetParent(chargeStation.transform, false);
+
+                    break;
                 }
-            }
-            if (array[i].name == "Cube (2)" && array[i].transform.parent.gameObject.name.StartsWith("CameraMonitor"))
-            {
-                if (CozyConfig.configBigMonitorButtons.Value)
+                case "Cube (2)" when Configs.BigMonitorButtons.Value:
                 {
-                    Accessibility.AdjustMonitorButtons(array[i].gameObject);
+                    if (trigger.transform.parent.gameObject.name.StartsWith("CameraMonitor"))
+                    {
+                        Accessibility.AdjustMonitorButtons(trigger);
+                    }
+
+                    break;
                 }
             }
         }
@@ -161,101 +153,79 @@ public class CozyImprovements : BaseUnityPlugin
         var meshRenderer = gameObject.GetComponent<MeshRenderer>();
         var emMaterial = meshRenderer.material;
 
-        emMaterial.SetColor("_EmissiveColor", (Color)glowColor * brightness);
+        emMaterial.SetColor(ShaderIDs.EmissiveColor.Value, (Color)glowColor * brightness);
         meshRenderer.material = emMaterial;
     }
 
     private static void ManageStorageCupboard()
     {
-        var array = FindObjectsOfType<PlaceableShipObject>();
-        for (var i = 0; i < array.Length; i++)
-        {
-            var sorInst = StartOfRound.Instance;
-            var unlockableItem = sorInst.unlockablesList.unlockables[array[i].unlockableID];
-            var unlockableType = unlockableItem.unlockableType;
-            if (unlockableItem.unlockableName == "Cupboard")
-            {
-                /*
-                Debug.Log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-                Debug.Log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-                Debug.Log("~~~~~~~~~~~~~~~~~~~~    LoadUnlockables    ~~~~~~~~~~~~~~~~~~~~~");
-                Debug.Log(padString(unlockableItem.unlockableName, '~', 65));
-                Debug.Log(padString("" + unlockableType, '~', 65));
-                Debug.Log(padString("" + unlockableItem.spawnPrefab, '~', 65));
-                Debug.Log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-                Debug.Log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-                Debug.Log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-                */
-                closetGameObject = array[i].parentObject.gameObject;
-                break;
-            }
-        }
-
-        if (closetGameObject == null)
-        {
-            return;
-        }
-
-
         // Don't bother if the config option is disabled
-        if (CozyConfig.configStorageLights.Value)
-        {
-            SpawnStorageLights(closetGameObject);
-        }
+        if (!Configs.StorageLights.Value)
+            return;
+
+        var closetObject = GameObject.Find("Environment/HangarShip/StorageCloset");
+        if (closetObject is null)
+            return;
+
+        SpawnStorageLights(closetObject);
     }
 
-    private static void SpawnStorageLights(GameObject storageCloset)
+    private static void SpawnStorageLights(GameObject closetObject)
     {
         /*
         MeshRenderer renderer = gameObject.GetComponent<MeshRenderer>();
         Vector3 size = renderer.bounds.size;
-        Debug.Log("Renderer bounds: " + size);
+        Log.LogInfo("Renderer bounds: " + size);
         */
-        var midPoint = -1.1175f;
-
-        var heightList = new List<float> { 2.804f, 2.163f, 1.48f, 0.999f };
-        var lightOffset = 0.55f;
 
         // Top Shelf
-        var shelfHeight = heightList[0];
-        AttachLightToStorageCloset(storageCloset, new Vector3(midPoint - lightOffset, 0.4f, shelfHeight));
-        AttachLightToStorageCloset(storageCloset, new Vector3(midPoint, 0.4f, shelfHeight));
-        AttachLightToStorageCloset(storageCloset, new Vector3(midPoint + lightOffset, 0.4f, shelfHeight));
+        AttachLightsToStorageCloset(closetObject, 2.804f);
         // 2nd Shelf
-        shelfHeight = heightList[1];
-        AttachLightToStorageCloset(storageCloset, new Vector3(midPoint - lightOffset, 0.4f, shelfHeight));
-        AttachLightToStorageCloset(storageCloset, new Vector3(midPoint, 0.4f, shelfHeight));
-        AttachLightToStorageCloset(storageCloset, new Vector3(midPoint + lightOffset, 0.4f, shelfHeight));
+        AttachLightsToStorageCloset(closetObject, 2.163f);
         // 3rd Shelf
-        shelfHeight = heightList[2];
-        AttachLightToStorageCloset(storageCloset, new Vector3(midPoint - lightOffset, 0.4f, shelfHeight), 2.0f);
-        AttachLightToStorageCloset(storageCloset, new Vector3(midPoint, 0.4f, shelfHeight), 2.0f);
-        AttachLightToStorageCloset(storageCloset, new Vector3(midPoint + lightOffset, 0.4f, shelfHeight), 2.0f);
+        AttachLightsToStorageCloset(closetObject, 1.48f, 2f);
         // Bottom Shelf
-        shelfHeight = heightList[3];
-        AttachLightToStorageCloset(storageCloset, new Vector3(midPoint - lightOffset, 0.4f, shelfHeight));
-        AttachLightToStorageCloset(storageCloset, new Vector3(midPoint, 0.4f, shelfHeight));
-        AttachLightToStorageCloset(storageCloset, new Vector3(midPoint + lightOffset, 0.4f, shelfHeight));
+        AttachLightsToStorageCloset(closetObject, 0.999f);
     }
-        
-    private static void AttachLightToStorageCloset(GameObject storageCloset, Vector3 lightPositionOffset, float intensity = 3.0f)
-    {
-        // Create lightbulb object
-        var lightObject = new GameObject("StorageClosetLight");
-        var meshFilter = lightObject.AddComponent<MeshFilter>();
-        var meshRenderer = lightObject.AddComponent<MeshRenderer>();
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void AttachLightsToStorageCloset(GameObject closetObject, float z, float intensity = 3f)
+    {
+        const float midPoint = -1.1175f;
+        const float lightOffset = 0.55f;
+
+        AttachLightToStorageCloset(closetObject, new Vector3(midPoint - lightOffset, 0.4f, z), intensity);
+        AttachLightToStorageCloset(closetObject, new Vector3(midPoint, 0.4f, z), intensity);
+        AttachLightToStorageCloset(closetObject, new Vector3(midPoint + lightOffset, 0.4f, z), intensity);
+    }
+
+    private static void AttachLightToStorageCloset(
+        GameObject closetObject,
+        Vector3 lightPositionOffset,
+        float intensity = 3.0f)
+    {
+        // Use previous lightbulb object
+        var lightObject = closetObject.transform.Find("StorageClosetLight")?.gameObject;
+        if (lightObject is not null)
+        {
+            lightObject = Instantiate(lightObject, closetObject.transform, false);
+            lightObject.GetComponent<Light>().intensity = intensity;
+            lightObject.transform.localPosition = lightPositionOffset;
+            return;
+        }
+
+        // Create lightbulb object
+        lightObject = new GameObject("StorageClosetLight");
         var tempSphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        meshFilter.mesh = tempSphere.GetComponent<MeshFilter>().mesh;
+        lightObject.AddComponent<MeshFilter>().mesh = tempSphere.GetComponent<MeshFilter>().mesh;
 
         // Make lightbulb glow
+        const float emissiveIntensity = 1.0f;
         var offWhiteMaterial = new Material(Shader.Find("HDRP/Lit"));
         Color lightSphereColor = new Color32(249, 240, 202, 255); // Off-white color
-        offWhiteMaterial.SetColor("_BaseColor", lightSphereColor); // Set the base color (albedo)
-
-        var emissiveIntensity = 1.0f;
-        offWhiteMaterial.SetColor("_EmissiveColor", lightSphereColor * emissiveIntensity);
-        meshRenderer.material = offWhiteMaterial;
+        offWhiteMaterial.SetColor(ShaderIDs.BaseColor.Value, lightSphereColor); // Set the base color (albedo)
+        offWhiteMaterial.SetColor(ShaderIDs.EmissiveColor.Value, lightSphereColor * emissiveIntensity);
+        lightObject.AddComponent<MeshRenderer>().material = offWhiteMaterial;
 
         DestroyImmediate(tempSphere);
 
@@ -272,7 +242,7 @@ public class CozyImprovements : BaseUnityPlugin
         lightObject.transform.localScale = new Vector3(0.125f, 0.125f, 0.04f);
         lightObject.transform.localPosition = lightPositionOffset;
         lightObject.transform.rotation = Quaternion.Euler(170, 0, 0);
-        lightObject.transform.SetParent(storageCloset.transform, false);
+        lightObject.transform.SetParent(closetObject.transform, false);
     }
 
 
@@ -282,20 +252,26 @@ public class CozyImprovements : BaseUnityPlugin
 
     private static string PadString(string baseStr, char padChar, int width)
     {
-        var paddingWidth = width - (baseStr.Length + 8);
-        var padLeft = paddingWidth / 2 + (baseStr.Length + 8);
-        var paddedStr = ("    " + baseStr + "    ").PadLeft(padLeft, padChar).PadRight(width, padChar);
-        return paddedStr;
+        var paddingWidth = width - baseStr.Length - 8;
+
+        StringBuilder sb = new(width);
+        sb.Append(padChar, paddingWidth / 2);
+        sb.Append(' ', 4);
+        sb.Append(baseStr);
+        sb.Append(' ', 4);
+        sb.Append(padChar, paddingWidth / 2 + paddingWidth % 2);
+
+        return sb.ToString();
     }
 
     private static void ObviousDebug(string baseStr)
     {
-        Debug.Log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-        Debug.Log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-        Debug.Log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-        Debug.Log(PadString("" + baseStr, '~', 65));
-        Debug.Log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-        Debug.Log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-        Debug.Log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        Log.LogInfo("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        Log.LogInfo("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        Log.LogInfo("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        Log.LogInfo(PadString("" + baseStr, '~', 65));
+        Log.LogInfo("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        Log.LogInfo("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        Log.LogInfo("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
     }
 }
