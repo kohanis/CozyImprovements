@@ -26,7 +26,7 @@ public static class Configs
             "General",
             "StorageLightsEnabled",
             true,
-            "Makes the LightSwitch glow in the dark"
+            "Enables the Storage Lights System"
         );
         LightSwitchGlow = cfg.Bind(
             "General",

@@ -7,7 +7,7 @@
         <Description>
             Enhance the experience inside the ship to create a more immersive, cozy, and accessible environment.
         </Description>
-        <Version>1.2.0</Version>
+        <Version>1.2.1</Version>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <LangVersion>latest</LangVersion>
         <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
